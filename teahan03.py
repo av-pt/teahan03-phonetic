@@ -57,7 +57,7 @@
         -i "mydata/pan20-authorship-verification-test-corpus.jsonl" 
         -o "mydata/pan20-answers" -m "mydata/model_small.joblib"
 
- Additional functions (train_data and train_model) are provided to 
+ Additional functions (prep_data and train_model) are provided to 
  prepare training data and train a new model.
  
  Supplementary files:
@@ -81,6 +81,7 @@ from sklearn.metrics import roc_curve
 import matplotlib.pyplot as plt
 from joblib import dump, load
 import decimal
+from tqdm import tqdm
 
 class Model(object):
     # cnt - count of characters read
@@ -294,39 +295,45 @@ def distance(text1,text2,ppm_order=5):
 
 # Prepares training data 
 # For each verification case it calculates the mean and absolute differences of cross-entropies
-def train_data(train_file,truth_file,out_file,ppm_order=5):
+def prep_data(train_file,truth_file,out_name,ppm_order=5):
+    print('Loading data...')
     with open(truth_file,'r') as tfp:
         labels=[]
         for line in tfp:
             labels.append(json.loads(line))
+    print('Calculating cross-entropies...')
     with open(train_file,'r') as fp:
         data=[]
         tr_labels=[]
         tr_data={}
-        for i,line in enumerate(fp):
+        for i,line in tqdm(enumerate(fp), total=len(labels)):
             X=json.loads(line)
-            true_label=[x for x in labels if x["id"] == X["id"] ][0]
+            true_label=[x for x in labels if x["id"] == X["id"] ][0]  # TODO: Finding the right line like this is slow
             D=distance(X['pair'][0],X['pair'][1],ppm_order)
             if true_label["same"]==True:
                 tl=1
             else: tl=0
             tr_labels.append(tl)
-            print(i,X['id'],D[0],true_label["same"])
+            #print(i,X['id'],D[0],true_label["same"])
 
+        print('Writing results...')
         # Saves training data
         tr_data["data"]=data
         tr_data["labels"]=tr_labels
-        with open(out_file, 'w') as outf:
+        with open(os.path.join('data', 'prepared', out_name), 'w') as outf:
             json.dump(tr_data, outf)
 
 # Trains the logistic regression model
 def train_model(train_data_file,output_model_file):
+    print('Loading data...')
     with open(train_data_file) as fp:
         D1=json.load(fp)
         X_train = D1['data']
         y_train = D1['labels']
+    print('Fitting regression...')
     logreg = LogisticRegression()
     logreg.fit(X_train, y_train)
+    print('Writing results...')
     dump(logreg, output_model_file)
 
 # Applies the model to evaluation data
@@ -352,21 +359,56 @@ def apply_model(eval_data_file,output_folder,model_file,radius):
     print('elapsed time:', time.time() - start_time)
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser = argparse.ArgumentParser(description='PAN-20 Cross-domain Authorship Verification task: Baseline Compressor')
-    parser.add_argument('-i', type=str, help='Full path name to the evaluation dataset JSNOL file')
-    parser.add_argument('-o', type=str, help='Path to an output folder')
-    parser.add_argument('-m', type=str, default='model_small.joblib', help='Full path name to the model file')
-    parser.add_argument('-r', type=float, default=0.05, help='Radius around 0.5 to leave verification cases unanswered')
-    args = parser.parse_args()
-    if not args.i:
-        print('ERROR: The input file is required')
-        parser.exit(1)
-    if not args.o:
-        print('ERROR: The output folder is required')
-        parser.exit(1)
+    parser = argparse.ArgumentParser(
+        prog='teahan03',
+        description='PAN-20 Cross-domain Authorship Verification task: Baseline Compressor',
+        add_help=True)
+    subparsers = parser.add_subparsers(title='commands', dest='command')
+    subparsers.required = True
+
+    prep_parser = subparsers.add_parser('prep', help='Prepare PAN20 formatted data')
+    prep_parser.add_argument('-i', '--train', type=str, help='PAN20 formatted training data')
+    prep_parser.add_argument('-w', '--truth', type=str, help='PAN20 formatted truth data')
+    prep_parser.add_argument('-o', '--out', type=str, help='Name of output file')
+    prep_parser.add_argument('-p', '--ppm_order', type=int, default=5, help='Prediction by Partial Matching order')
+
+
+    train_parser = subparsers.add_parser('train', help='Train a model on prepared data')
+    train_parser.add_argument('-i', '--in', type=str, help='Prepared training data')
+    train_parser.add_argument('-o', '--out', type=str, help='Name of output file')
+
+
+    apply_parser = subparsers.add_parser('apply', help='Apply a trained model to test data')
+    apply_parser.add_argument('-i', '--in', type=str, help='Full path name to the evaluation dataset JSONL file')
+    apply_parser.add_argument('-o', '--out', type=str, help='Path to an output folder')
+    apply_parser.add_argument('-m', '--model', type=str, help='Full path name to the model file')
+    apply_parser.add_argument('-r', '--radius', type=float, default=0.05, help='Radius around 0.5 to leave verification cases unanswered')
     
-    apply_model(args.i, args.o, args.m, args.r)
+    args = parser.parse_args()
+
+    # These folders should already exist
+    os.makedirs(os.path.dirname('data/'), exist_ok=True)
+    os.makedirs(os.path.dirname(os.path.join('data', 'raw/')), exist_ok=True)
+    
+    if args.command == 'prep':
+        os.makedirs(os.path.dirname(os.path.join('data', 'prepared/')), exist_ok=True)
+        prep_data(args.train, args.truth, args.out, args.ppm_order)
+    elif args.command == 'train':
+        os.makedirs(os.path.dirname(os.path.join('data', 'model/')), exist_ok=True)
+        pass
+    elif args.command == 'apply':
+        if not args.i:
+            print('ERROR: The input file is required')
+            parser.exit(1)
+        if not args.o:
+            print('ERROR: The output folder is required')
+            parser.exit(1)
+        
+        apply_model(args.i, args.o, args.m, args.r)
+
+    
+    
+
 
 if __name__ == '__main__':
     main()
@@ -374,3 +416,6 @@ if __name__ == '__main__':
 # Notes:
 # - pan20-authorship-verification-training-small.jsonl contains on each line: id (string), fandoms (list of strings), pair (list of strings, size 2?)
 # - pan20-authorship-verification-training-small-truth.jsonl each line: id (string), same (boolean), authors (list of 2 strings, ids)
+
+# Usage:
+# teahan03.py [prep|train|eval] -iomr
