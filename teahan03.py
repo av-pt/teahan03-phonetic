@@ -73,7 +73,6 @@ import os
 import json
 import time
 import argparse
-from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import classification_report
 from sklearn.metrics import roc_auc_score
@@ -325,7 +324,7 @@ def prep_data(train_file,truth_file,out_name,ppm_order=5):
             json.dump(tr_data, outf)
 
 # Trains the logistic regression model
-def train_model(train_data_file,output_model_file):
+def train_model(train_data_file,out_name):
     print('Loading data...')
     with open(train_data_file) as fp:
         D1=json.load(fp)
@@ -335,7 +334,7 @@ def train_model(train_data_file,output_model_file):
     logreg = LogisticRegression()
     logreg.fit(X_train, y_train)
     print('Writing results...')
-    dump(logreg, output_model_file)
+    dump(logreg, os.path.join('data', 'model', out_name))
 
 # Applies the model to evaluation data
 # Produces an output file (answers.jsonl) with predictions
@@ -370,18 +369,18 @@ def main():
     prep_parser = subparsers.add_parser('prep', help='Prepare PAN20 formatted data')
     prep_parser.add_argument('-i', '--train', type=str, help='PAN20 formatted training data')
     prep_parser.add_argument('-w', '--truth', type=str, help='PAN20 formatted truth data')
-    prep_parser.add_argument('-o', '--out', type=str, help='Name of output file')
+    prep_parser.add_argument('-o', '--output', type=str, help='Name of output file')
     prep_parser.add_argument('-p', '--ppm_order', type=int, default=5, help='Prediction by Partial Matching order')
 
 
     train_parser = subparsers.add_parser('train', help='Train a model on prepared data')
-    train_parser.add_argument('-i', '--in', type=str, help='Prepared training data')
-    train_parser.add_argument('-o', '--out', type=str, help='Name of output file')
+    train_parser.add_argument('-i', '--input', type=str, help='Prepared training data')
+    train_parser.add_argument('-o', '--output', type=str, help='Name of output file')
 
 
     apply_parser = subparsers.add_parser('apply', help='Apply a trained model to test data')
-    apply_parser.add_argument('-i', '--in', type=str, help='Full path name to the evaluation dataset JSONL file')
-    apply_parser.add_argument('-o', '--out', type=str, help='Path to an output folder')
+    apply_parser.add_argument('-i', '--input', type=str, help='Full path name to the evaluation dataset JSONL file')
+    apply_parser.add_argument('-o', '--output', type=str, help='Path to an output folder')
     apply_parser.add_argument('-m', '--model', type=str, help='Full path name to the model file')
     apply_parser.add_argument('-r', '--radius', type=float, default=0.05, help='Radius around 0.5 to leave verification cases unanswered')
     
@@ -393,10 +392,10 @@ def main():
     
     if args.command == 'prep':
         os.makedirs(os.path.dirname(os.path.join('data', 'prepared/')), exist_ok=True)
-        prep_data(args.train, args.truth, args.out, args.ppm_order)
+        prep_data(args.train, args.truth, args.output, args.ppm_order)
     elif args.command == 'train':
         os.makedirs(os.path.dirname(os.path.join('data', 'model/')), exist_ok=True)
-        pass
+        train_model(args.input, args.output)
     elif args.command == 'apply':
         if not args.i:
             print('ERROR: The input file is required')
@@ -405,7 +404,7 @@ def main():
             print('ERROR: The output folder is required')
             parser.exit(1)
         
-        apply_model(args.i, args.o, args.m, args.r)
+        apply_model(args.input, args.output, args.model, args.radius)
 
     
     
