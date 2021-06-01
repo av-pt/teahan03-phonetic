@@ -1,10 +1,20 @@
 # teahan03-phonetic
 Authorship Verification algorithm based on Teahan and Harper [2003] extended to use phonetic transcriptions.
 
-## Example commands
-```
-pipenv install
+NOTE: This project uses [CLTS data](https://github.com/cldf-clts/clts) as a submodule. Use `git clone --recurse-submodules` for cloning the repository. If you already cloned the repository with `git clone`, run `git submodule update --init` to get the required submodules.
+NOTE: This project uses Pipenv. Alternatively, the modules in the Pipfile can be installed manually. Then `pipenv run` is not required anymore.
 
+## Example commands
+Initialize:
+```
+git clone --recurse-submodules ...
+
+pipenv install
+pipenv run python -m spacy download en_core_web_sm
+```
+
+Run:
+```
 pipenv run python teahan03.py prep -i data/raw/pan20-authorship-verification-training-small.jsonl -w data/raw/pan20-authorship-verification-training-small-truth.jsonl -o small_prepared.txt
 
 pipenv run python teahan03.py train -i data/prepared/small_prepared.txt -o small_model.joblib

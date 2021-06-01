@@ -8,6 +8,12 @@ sklearn = "*"
 matplotlib = "*"
 joblib = "*"
 tqdm = "*"
+g2p-en = "*"
+pyphonetics = "*"
+nltk = "*"
+pyclts = "*"
+spacy = "*"
+ujson = "*"
 
 [dev-packages]
 
