@@ -307,7 +307,8 @@ def prep_data(train_file,truth_file,out_name,ppm_order=5):
         tr_data={}
         for i,line in tqdm(enumerate(fp), total=len(labels)):
             X=json.loads(line)
-            true_label=[x for x in labels if x["id"] == X["id"] ][0]  # TODO: Finding the right line like this is slow
+            # Next line is ok performance-wise
+            true_label=[x for x in labels if x["id"] == X["id"] ][0]
             d = distance(X['pair'][0],X['pair'][1],ppm_order)
             data.append(d)
             if true_label["same"]==True:
@@ -384,6 +385,13 @@ def main():
     apply_parser.add_argument('-m', '--model', type=str, help='Full path name to the model file')
     apply_parser.add_argument('-r', '--radius', type=float, default=0.05, help='Radius around 0.5 to leave verification cases unanswered')
     
+    crossval_parser = subparsers.add_parser('crossval', help='Cross-validate the algorithm on prepared data.')
+    # TODO: Rectified k-fold split data, 
+    # for each split {
+    #   train_model on large part (should be fast), 
+    #   apply_model to other part
+    # }
+
     args = parser.parse_args()
 
     # These folders should already exist
@@ -397,10 +405,10 @@ def main():
         os.makedirs(os.path.dirname(os.path.join('data', 'model/')), exist_ok=True)
         train_model(args.input, args.output)
     elif args.command == 'apply':
-        if not args.i:
+        if not args.input:
             print('ERROR: The input file is required')
             parser.exit(1)
-        if not args.o:
+        if not args.output:
             print('ERROR: The output folder is required')
             parser.exit(1)
         
