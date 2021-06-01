@@ -359,6 +359,14 @@ def apply_model(eval_data_file,output_folder,model_file,radius):
             outfile.write('\n')
     print('elapsed time:', time.time() - start_time)
 
+def crossval(input, k):
+    pass
+    # TODO: Rectified k-fold split prepared data, 
+    # for each split {
+    #   train_model on large part (should be fast), 
+    #   apply_model to other part
+    # }
+
 def main():
     parser = argparse.ArgumentParser(
         prog='teahan03',
@@ -386,11 +394,8 @@ def main():
     apply_parser.add_argument('-r', '--radius', type=float, default=0.05, help='Radius around 0.5 to leave verification cases unanswered')
     
     crossval_parser = subparsers.add_parser('crossval', help='Cross-validate the algorithm on prepared data.')
-    # TODO: Rectified k-fold split data, 
-    # for each split {
-    #   train_model on large part (should be fast), 
-    #   apply_model to other part
-    # }
+    crossval_parser.add_argument('-i', '--input', type=str, help='Prepared data')
+    crossval_parser.add_argument('-k', '--num_folds', type=int, default=10, help='Number of folds')
 
     args = parser.parse_args()
 
@@ -413,6 +418,9 @@ def main():
             parser.exit(1)
         
         apply_model(args.input, args.output, args.model, args.radius)
+    elif args.command == 'crossval':
+        crossval(args.input, args.num_folds)
+
 
     
     
@@ -424,6 +432,3 @@ if __name__ == '__main__':
 # Notes:
 # - pan20-authorship-verification-training-small.jsonl contains on each line: id (string), fandoms (list of strings), pair (list of strings, size 2?)
 # - pan20-authorship-verification-training-small-truth.jsonl each line: id (string), same (boolean), authors (list of 2 strings, ids)
-
-# Usage:
-# teahan03.py [prep|train|eval] -iomr
