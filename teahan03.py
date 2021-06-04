@@ -32,7 +32,7 @@
  It can be applied to datasets of PAN-20 cross-domain authorship 
  verification task.
  See details here: 
- http://pan.webis.de/clef20/pan20-web/author-identification.html
+ https://pan.webis.de/clef20/pan20-web/author-identification.html
  Dependencies:
  - Python 2.7 or 3.6 (we recommend the Anaconda Python distribution)
 
@@ -48,7 +48,7 @@
         (default=model_small.joblib, a model already trained on the 
         small training dataset released by PAN-20 using logistic 
         regression with PPM order = 5)
-	 RADIUS (float) is the radius around the threshold 0.5 to leave 
+     RADIUS (float) is the radius around the threshold 0.5 to leave
         verification cases unanswered (dedault = 0.05). All cases with a
          value in [0.5-RADIUS, 0.5+RADIUS] are left unanswered.
  
@@ -61,7 +61,7 @@
  prepare training data and train a new model.
  
  Supplementary files:
-	data-small.txt: training data extracted from the small dataset 
+    data-small.txt: training data extracted from the small dataset
     provided by PAN-20 authorship verification task
     model.joblib: trained model using logistic regression, PPM order=5, 
     using data of data-small.txt
@@ -74,13 +74,9 @@ import json
 import time
 import argparse
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import classification_report
-from sklearn.metrics import roc_auc_score
-from sklearn.metrics import roc_curve
-import matplotlib.pyplot as plt
 from joblib import dump, load
-import decimal
 from tqdm import tqdm
+
 
 class Model(object):
     # cnt - count of characters read
@@ -108,11 +104,11 @@ class Model(object):
         o = self.orders[n]
         s = "Order " + str(n) + ": (" + str(o.cnt) + ")\n"
         for cont in o.contexts:
-            if(n > 0):
+            if (n > 0):
                 s += "  '" + cont + "': (" + str(o.contexts[cont].cnt) + ")\n"
             for char in o.contexts[cont].chars:
                 s += "     '" + char + "': " + \
-                    str(o.contexts[cont].chars[char]) + "\n"
+                     str(o.contexts[cont].chars[char]) + "\n"
         s += "\n"
         print(s)
 
@@ -267,6 +263,7 @@ class Context(object):
         for c in empty:
             del self.chars[c]
 
+
 # calculates the cross-entropy of the string 's' using model 'm'
 def h(m, s):
     n = len(s)
@@ -281,54 +278,58 @@ def h(m, s):
         h -= log(m.p(s[i], context), 2)
     return h / n
 
+
 # Calculates the cross-entropy of text2 using the model of text1 and vice-versa
 # Returns the mean and the absolute difference of the two cross-entropies
-def distance(text1,text2,ppm_order=5):
+def distance(text1, text2, ppm_order=5):
     mod1 = Model(ppm_order, 256)
     mod1.read(text1)
-    d1=h(mod1, text2)
+    d1 = h(mod1, text2)
     mod2 = Model(ppm_order, 256)
     mod2.read(text2)
-    d2=h(mod2, text1)
-    return [round((d1+d2)/2.0,4),round(abs(d1-d2),4)]
+    d2 = h(mod2, text1)
+    return [round((d1 + d2) / 2.0, 4), round(abs(d1 - d2), 4)]
 
-# Prepares training data 
+
+# Prepares training data
 # For each verification case it calculates the mean and absolute differences of cross-entropies
-def prep_data(train_file,truth_file,out_name,ppm_order=5):
+def prep_data(train_file, truth_file, out_name, ppm_order=5):
     print('Loading data...')
-    with open(truth_file,'r') as tfp:
-        labels=[]
+    with open(truth_file, 'r') as tfp:
+        labels = []
         for line in tfp:
             labels.append(json.loads(line))
     print('Calculating cross-entropies...')
-    with open(train_file,'r') as fp:
-        data=[]
-        tr_labels=[]
-        tr_data={}
-        for i,line in tqdm(enumerate(fp), total=len(labels)):
-            X=json.loads(line)
+    with open(train_file, 'r') as fp:
+        data = []
+        tr_labels = []
+        tr_data = {}
+        for i, line in tqdm(enumerate(fp), total=len(labels)):
+            X = json.loads(line)
             # Next line is ok performance-wise
-            true_label=[x for x in labels if x["id"] == X["id"] ][0]
-            d = distance(X['pair'][0],X['pair'][1],ppm_order)
+            true_label = [x for x in labels if x["id"] == X["id"]][0]
+            d = distance(X['pair'][0], X['pair'][1], ppm_order)
             data.append(d)
-            if true_label["same"]==True:
-                tl=1
-            else: tl=0
+            if true_label["same"] == True:
+                tl = 1
+            else:
+                tl = 0
             tr_labels.append(tl)
-            #print(i,X['id'],D[0],true_label["same"])
+            # print(i,X['id'],D[0],true_label["same"])
 
         print('Writing results...')
         # Saves training data
-        tr_data["data"]=data
-        tr_data["labels"]=tr_labels
+        tr_data["data"] = data
+        tr_data["labels"] = tr_labels
         with open(os.path.join('data', 'prepared', out_name), 'w') as outf:
             json.dump(tr_data, outf)
 
+
 # Trains the logistic regression model
-def train_model(train_data_file,out_name):
+def train_model(train_data_file, out_name):
     print('Loading data...')
     with open(train_data_file) as fp:
-        D1=json.load(fp)
+        D1 = json.load(fp)
         X_train = D1['data']
         y_train = D1['labels']
     print('Fitting regression...')
@@ -337,27 +338,29 @@ def train_model(train_data_file,out_name):
     print('Writing results...')
     dump(logreg, os.path.join('data', 'model', out_name))
 
+
 # Applies the model to evaluation data
 # Produces an output file (answers.jsonl) with predictions
-def apply_model(eval_data_file,output_folder,model_file,radius):
+def apply_model(eval_data_file, output_folder, model_file, radius):
     start_time = time.time()
-    model = load(model_file) 
-    answers=[]
-    with open(eval_data_file,'r') as fp:
-        for i,line in enumerate(fp):
-            X=json.loads(line)
-            D=distance(X['pair'][0],X['pair'][1],ppm_order=5)
+    model = load(model_file)
+    answers = []
+    with open(eval_data_file, 'r') as fp:
+        for i, line in enumerate(fp):
+            X = json.loads(line)
+            D = distance(X['pair'][0], X['pair'][1], ppm_order=5)
             pred = model.predict_proba([D])
             # All values around 0.5 are transformed to 0.5
-            if pred[0,1] >= 0.5 - radius and pred[0,1] <= 0.5 + radius:
-                pred[0,1] = 0.5
-            print(i+1,X['id'],round(pred[0,1],3))
-            answers.append({'id': X['id'],'value': round(pred[0,1],3)})
-    with open(output_folder+os.sep+'answers.jsonl', 'w') as outfile:
+            if pred[0, 1] >= 0.5 - radius and pred[0, 1] <= 0.5 + radius:
+                pred[0, 1] = 0.5
+            print(i + 1, X['id'], round(pred[0, 1], 3))
+            answers.append({'id': X['id'], 'value': round(pred[0, 1], 3)})
+    with open(output_folder + os.sep + 'answers.jsonl', 'w') as outfile:
         for ans in answers:
             json.dump(ans, outfile)
             outfile.write('\n')
     print('elapsed time:', time.time() - start_time)
+
 
 def crossval(input, k):
     pass
@@ -367,6 +370,7 @@ def crossval(input, k):
     #   apply_model to other part
     # }
 
+
 def main():
     parser = argparse.ArgumentParser(
         prog='teahan03',
@@ -375,39 +379,55 @@ def main():
     subparsers = parser.add_subparsers(title='commands', dest='command')
     subparsers.required = True
 
-    prep_parser = subparsers.add_parser('prep', help='Prepare PAN20 formatted data')
-    prep_parser.add_argument('-i', '--train', type=str, help='PAN20 formatted training data')
-    prep_parser.add_argument('-w', '--truth', type=str, help='PAN20 formatted truth data')
-    prep_parser.add_argument('-o', '--output', type=str, help='Name of output file')
-    prep_parser.add_argument('-p', '--ppm_order', type=int, default=5, help='Prediction by Partial Matching order')
+    prep_parser = subparsers.add_parser('prep',
+                                        help='Prepare PAN20 formatted data')
+    prep_parser.add_argument('-i', '--train', type=str,
+                             help='PAN20 formatted training data')
+    prep_parser.add_argument('-w', '--truth', type=str,
+                             help='PAN20 formatted truth data')
+    prep_parser.add_argument('-o', '--output', type=str,
+                             help='Name of output file')
+    prep_parser.add_argument('-p', '--ppm_order', type=int, default=5,
+                             help='Prediction by Partial Matching order')
 
+    train_parser = subparsers.add_parser('train',
+                                         help='Train a model on prepared data')
+    train_parser.add_argument('-i', '--input', type=str,
+                              help='Prepared training data')
+    train_parser.add_argument('-o', '--output', type=str,
+                              help='Name of output file')
 
-    train_parser = subparsers.add_parser('train', help='Train a model on prepared data')
-    train_parser.add_argument('-i', '--input', type=str, help='Prepared training data')
-    train_parser.add_argument('-o', '--output', type=str, help='Name of output file')
+    apply_parser = subparsers.add_parser('apply',
+                                         help='Apply a trained model to test data')
+    apply_parser.add_argument('-i', '--input', type=str,
+                              help='Full path name to the evaluation dataset JSONL file')
+    apply_parser.add_argument('-o', '--output', type=str,
+                              help='Path to an output folder')
+    apply_parser.add_argument('-m', '--model', type=str,
+                              help='Full path name to the model file')
+    apply_parser.add_argument('-r', '--radius', type=float, default=0.05,
+                              help='Radius around 0.5 to leave verification cases unanswered')
 
-
-    apply_parser = subparsers.add_parser('apply', help='Apply a trained model to test data')
-    apply_parser.add_argument('-i', '--input', type=str, help='Full path name to the evaluation dataset JSONL file')
-    apply_parser.add_argument('-o', '--output', type=str, help='Path to an output folder')
-    apply_parser.add_argument('-m', '--model', type=str, help='Full path name to the model file')
-    apply_parser.add_argument('-r', '--radius', type=float, default=0.05, help='Radius around 0.5 to leave verification cases unanswered')
-    
-    crossval_parser = subparsers.add_parser('crossval', help='Cross-validate the algorithm on prepared data.')
-    crossval_parser.add_argument('-i', '--input', type=str, help='Prepared data')
-    crossval_parser.add_argument('-k', '--num_folds', type=int, default=10, help='Number of folds')
+    crossval_parser = subparsers.add_parser('crossval',
+                                            help='Cross-validate the algorithm on prepared data.')
+    crossval_parser.add_argument('-i', '--input', type=str,
+                                 help='Prepared data')
+    crossval_parser.add_argument('-k', '--num_folds', type=int, default=10,
+                                 help='Number of folds')
 
     args = parser.parse_args()
 
     # These folders should already exist
     os.makedirs(os.path.dirname('data/'), exist_ok=True)
     os.makedirs(os.path.dirname(os.path.join('data', 'raw/')), exist_ok=True)
-    
+
     if args.command == 'prep':
-        os.makedirs(os.path.dirname(os.path.join('data', 'prepared/')), exist_ok=True)
+        os.makedirs(os.path.dirname(os.path.join('data', 'prepared/')),
+                    exist_ok=True)
         prep_data(args.train, args.truth, args.output, args.ppm_order)
     elif args.command == 'train':
-        os.makedirs(os.path.dirname(os.path.join('data', 'model/')), exist_ok=True)
+        os.makedirs(os.path.dirname(os.path.join('data', 'model/')),
+                    exist_ok=True)
         train_model(args.input, args.output)
     elif args.command == 'apply':
         if not args.input:
@@ -416,14 +436,10 @@ def main():
         if not args.output:
             print('ERROR: The output folder is required')
             parser.exit(1)
-        
+
         apply_model(args.input, args.output, args.model, args.radius)
     elif args.command == 'crossval':
         crossval(args.input, args.num_folds)
-
-
-    
-    
 
 
 if __name__ == '__main__':

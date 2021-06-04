@@ -1,6 +1,10 @@
-from converters import transcribe, available_transriptions, transcribe_horizontal
+import argparse
+import json
+import os
+
 from tqdm import tqdm
-import argparse, json, os
+
+from converters import available_transcriptions, transcribe_horizontal
 
 
 def main():
@@ -15,8 +19,8 @@ def main():
         parser.exit(1)
 
     # Input: PAN20 file (relative path given)
-    # Ouput: Transcribed PAN20 files in data/transcribed/
-    transcription_systems = available_transriptions()
+    # Output: Transcribed PAN20 files in data/transcribed/
+    transcription_systems = available_transcriptions()
     print(f'Transcribing to {len(transcription_systems)} systems:')
     print(transcription_systems)
 
@@ -41,23 +45,5 @@ def main():
                 f.write('\n')
 
 
-
-    # for i, system in enumerate(transcription_systems):
-    #     transcribed_entities = []
-    #     print(f'Transcribing to {system} ({i}/{len(transcription_systems)}).')
-    #     for entity in tqdm(orig_entities):
-    #         copy = entity.copy()
-    #         first_transcribed = transcribe(entity['pair'][0], system)
-    #         second_transcribed = transcribe(entity['pair'][1], system)
-    #         copy['pair'] = [first_transcribed, second_transcribed]
-    #         transcribed_entities.append(copy)
-    #     with open(os.path.join('data', 'transcribed', f'{system}_{os.path.basename(args.input)}'), 'w') as f:
-    #         for te in transcribed_entities:
-    #             json.dump(te, f)
-    #             f.write('\n')
-            
-        
-
 if __name__ == '__main__':
     main()
-
