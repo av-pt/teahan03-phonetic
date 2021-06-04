@@ -325,6 +325,14 @@ def prep_data(train_file, truth_file, out_name, ppm_order=5):
             json.dump(tr_data, outf)
 
 
+def prep_data_dir(train_folder, truth_file, ppm_order=5):
+    directory = [d for d in os.scandir(train_folder)]
+    print(f'Preparing {len(directory)} files.')
+    for dir_entry in directory:
+        prep_data(dir_entry.path, truth_file, f'prep_{dir_entry.name}', ppm_order)
+
+
+
 # Trains the logistic regression model
 def train_model(train_data_file, out_name):
     print('Loading data...')
@@ -424,11 +432,17 @@ def main():
     if args.command == 'prep':
         os.makedirs(os.path.dirname(os.path.join('data', 'prepared/')),
                     exist_ok=True)
-        prep_data(args.train, args.truth, args.output, args.ppm_order)
+        if os.path.isdir(args.train):
+            print('Folder detected.')
+            prep_data_dir(args.train, args.truth, args.ppm_order)
+        else:
+            prep_data(args.train, args.truth, args.output, args.ppm_order)
+
     elif args.command == 'train':
         os.makedirs(os.path.dirname(os.path.join('data', 'model/')),
                     exist_ok=True)
         train_model(args.input, args.output)
+
     elif args.command == 'apply':
         if not args.input:
             print('ERROR: The input file is required')
@@ -436,8 +450,8 @@ def main():
         if not args.output:
             print('ERROR: The output folder is required')
             parser.exit(1)
-
         apply_model(args.input, args.output, args.model, args.radius)
+
     elif args.command == 'crossval':
         crossval(args.input, args.num_folds)
 
