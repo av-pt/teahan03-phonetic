@@ -40,7 +40,7 @@ def main():
         second_transcriptions = transcribe_horizontal(entity['pair'][1])
         for system in transcription_systems:
             copy['pair'] = [first_transcriptions[system], second_transcriptions[system]]
-            with open(os.path.join('data', 'transcribed', f'{system}_{os.path.basename(args.input)}'), 'w') as f:
+            with open(os.path.join('data', 'transcribed', f'{system}_{os.path.basename(args.input)}'), 'a') as f:
                 json.dump(copy, f, ensure_ascii=False)
                 f.write('\n')
 
