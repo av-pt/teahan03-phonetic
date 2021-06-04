@@ -3,3 +3,7 @@
 
 *.lprof
 *.prof
+
+.idea/
+.vscode/
+__pycache__/
