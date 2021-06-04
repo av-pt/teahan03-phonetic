@@ -74,6 +74,7 @@ import json
 import time
 import argparse
 from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import StratifiedKFold
 from joblib import dump, load
 from tqdm import tqdm
 
@@ -302,6 +303,7 @@ def prep_data(train_file, truth_file, out_name, ppm_order=5):
     print('Calculating cross-entropies...')
     with open(train_file, 'r') as fp:
         data = []
+        ids = []
         tr_labels = []
         tr_data = {}
         for i, line in tqdm(enumerate(fp), total=len(labels)):
@@ -310,6 +312,7 @@ def prep_data(train_file, truth_file, out_name, ppm_order=5):
             true_label = [x for x in labels if x["id"] == X["id"]][0]
             d = distance(X['pair'][0], X['pair'][1], ppm_order)
             data.append(d)
+            ids.append(X['id'])
             if true_label["same"] == True:
                 tl = 1
             else:
@@ -321,6 +324,7 @@ def prep_data(train_file, truth_file, out_name, ppm_order=5):
         # Saves training data
         tr_data["data"] = data
         tr_data["labels"] = tr_labels
+        tr_data["ids"] = ids
         with open(os.path.join('data', 'prepared', out_name), 'w') as outf:
             json.dump(tr_data, outf)
 
@@ -371,7 +375,34 @@ def apply_model(eval_data_file, output_folder, model_file, radius):
 
 
 def crossval(input, k):
-    pass
+    # kf = StratifiedKFold(n_splits=k)
+    # print('Loading data...')
+    # with open(input, 'r') as f:
+    #     D1 = json.load(f)
+    #     X = D1['data']
+    #     y = D1['labels']
+    #
+    # # Cross validating
+    # for train, test in tqdm(kf.split(X, y)):
+    #     X_train, X_test, y_train, y_test = X[train], X[test], y[train], y[test]
+    #
+    #     # Fitting regression
+    #     logreg_model = LogisticRegression()
+    #     logreg_model.fit(X_train, y_train)
+    #
+    #     answers = []
+    #
+    #     for i, X in enumerate(X_test):
+    #         D = distance(X['pair'][0], X['pair'][1], ppm_order=5)
+    #         pred = model.predict_proba([D])
+    #         # All values around 0.5 are transformed to 0.5
+    #         if pred[0, 1] >= 0.5 - radius and pred[0, 1] <= 0.5 + radius:
+    #             pred[0, 1] = 0.5
+    #         print(i + 1, X['id'], round(pred[0, 1], 3))
+    #         answers.append({'id': X['id'], 'value': round(pred[0, 1], 3)})
+
+
+
     # TODO: Rectified k-fold split prepared data, 
     # for each split {
     #   train_model on large part (should be fast), 
