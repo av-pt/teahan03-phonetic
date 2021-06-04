@@ -41,7 +41,7 @@ def main():
         for system in transcription_systems:
             copy['pair'] = [first_transcriptions[system], second_transcriptions[system]]
             with open(os.path.join('data', 'transcribed', f'{system}_{os.path.basename(args.input)}'), 'a') as f:
-                json.dump(copy, f, ensure_ascii=False)
+                json.dump(copy, f)
                 f.write('\n')
 
 
