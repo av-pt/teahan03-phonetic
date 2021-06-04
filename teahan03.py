@@ -73,10 +73,13 @@ import os
 import json
 import time
 import argparse
+
+import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import StratifiedKFold
 from joblib import dump, load
 from tqdm import tqdm
+from pan20_verif_evaluator import evaluate_all
 
 
 class Model(object):
@@ -303,7 +306,6 @@ def prep_data(train_file, truth_file, out_name, ppm_order=5):
     print('Calculating cross-entropies...')
     with open(train_file, 'r') as fp:
         data = []
-        ids = []
         tr_labels = []
         tr_data = {}
         for i, line in tqdm(enumerate(fp), total=len(labels)):
@@ -312,7 +314,6 @@ def prep_data(train_file, truth_file, out_name, ppm_order=5):
             true_label = [x for x in labels if x["id"] == X["id"]][0]
             d = distance(X['pair'][0], X['pair'][1], ppm_order)
             data.append(d)
-            ids.append(X['id'])
             if true_label["same"] == True:
                 tl = 1
             else:
@@ -324,7 +325,6 @@ def prep_data(train_file, truth_file, out_name, ppm_order=5):
         # Saves training data
         tr_data["data"] = data
         tr_data["labels"] = tr_labels
-        tr_data["ids"] = ids
         with open(os.path.join('data', 'prepared', out_name), 'w') as outf:
             json.dump(tr_data, outf)
 
@@ -334,7 +334,6 @@ def prep_data_dir(train_folder, truth_file, ppm_order=5):
     print(f'Preparing {len(directory)} files.')
     for dir_entry in directory:
         prep_data(dir_entry.path, truth_file, f'prep_{dir_entry.name}', ppm_order)
-
 
 
 # Trains the logistic regression model
@@ -363,7 +362,7 @@ def apply_model(eval_data_file, output_folder, model_file, radius):
             D = distance(X['pair'][0], X['pair'][1], ppm_order=5)
             pred = model.predict_proba([D])
             # All values around 0.5 are transformed to 0.5
-            if pred[0, 1] >= 0.5 - radius and pred[0, 1] <= 0.5 + radius:
+            if 0.5 - radius <= pred[0, 1] <= 0.5 + radius:
                 pred[0, 1] = 0.5
             print(i + 1, X['id'], round(pred[0, 1], 3))
             answers.append({'id': X['id'], 'value': round(pred[0, 1], 3)})
@@ -374,40 +373,45 @@ def apply_model(eval_data_file, output_folder, model_file, radius):
     print('elapsed time:', time.time() - start_time)
 
 
-def crossval(input, k):
-    # kf = StratifiedKFold(n_splits=k)
-    # print('Loading data...')
-    # with open(input, 'r') as f:
-    #     D1 = json.load(f)
-    #     X = D1['data']
-    #     y = D1['labels']
-    #
-    # # Cross validating
-    # for train, test in tqdm(kf.split(X, y)):
-    #     X_train, X_test, y_train, y_test = X[train], X[test], y[train], y[test]
-    #
-    #     # Fitting regression
-    #     logreg_model = LogisticRegression()
-    #     logreg_model.fit(X_train, y_train)
-    #
-    #     answers = []
-    #
-    #     for i, X in enumerate(X_test):
-    #         D = distance(X['pair'][0], X['pair'][1], ppm_order=5)
-    #         pred = model.predict_proba([D])
-    #         # All values around 0.5 are transformed to 0.5
-    #         if pred[0, 1] >= 0.5 - radius and pred[0, 1] <= 0.5 + radius:
-    #             pred[0, 1] = 0.5
-    #         print(i + 1, X['id'], round(pred[0, 1], 3))
-    #         answers.append({'id': X['id'], 'value': round(pred[0, 1], 3)})
+def crossval(input, k, radius):
+    kf = StratifiedKFold(n_splits=k)
+    print('Loading data...')
+    with open(input, 'r') as f:
+        D1 = json.load(f)
+        X = D1['data']
+        y = D1['labels']
 
+    X = np.array(X, dtype=np.float64)
+    y = np.array(y, dtype=np.float64)
 
+    # Cross validating
+    pred_y = []
+    true_y = []
+    for train, test in kf.split(X, y):
+        X_train, X_test, y_train, y_test = X[train], X[test], y[train], y[test]
 
-    # TODO: Rectified k-fold split prepared data, 
-    # for each split {
-    #   train_model on large part (should be fast), 
-    #   apply_model to other part
-    # }
+        # Fitting regression
+        logreg_model = LogisticRegression()
+        logreg_model.fit(X_train, y_train)
+
+        for X_inner, y_inner in zip(X_test, y_test):
+            pred = logreg_model.predict_proba([X_inner])
+            # All values around 0.5 are transformed to 0.5
+            if 0.5 - radius <= pred[0, 1] <= 0.5 + radius:
+                pred[0, 1] = 0.5
+            pred_y.append(pred[0, 1])
+            true_y.append(y_inner)
+    print(f'Number of samples: {len(X)}\n'
+          f'Number of predictions: {len(pred_y)}\n'
+          f'Size of ground truth: {len(true_y)}')
+    print(pred_y, true_y)
+
+    # Evaluate
+    results = evaluate_all(true_y, pred_y)
+    print(results)
+
+    with open(os.path.join('data', f'eval_{time.strftime("%Y-%m-%d_%H-%M-%S")}.json'), 'w') as f:
+        json.dump(results, f, indent=4, sort_keys=True)
 
 
 def main():
@@ -453,6 +457,8 @@ def main():
                                  help='Prepared data')
     crossval_parser.add_argument('-k', '--num_folds', type=int, default=10,
                                  help='Number of folds')
+    crossval_parser.add_argument('-r', '--radius', type=float, default=0.05,
+                              help='Radius around 0.5 to leave verification cases unanswered')
 
     args = parser.parse_args()
 
@@ -484,7 +490,7 @@ def main():
         apply_model(args.input, args.output, args.model, args.radius)
 
     elif args.command == 'crossval':
-        crossval(args.input, args.num_folds)
+        crossval(args.input, args.num_folds, args.radius)
 
 
 if __name__ == '__main__':
