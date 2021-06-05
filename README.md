@@ -12,14 +12,24 @@ git clone --recurse-submodules ...
 pipenv install
 pipenv run python -m spacy download en_core_web_sm
 ```
+Load the PAN20 data into the folder `teahan03-phonetic/data/raw/`
 
-Run:
+Run (cross-validation):
 ```
-pipenv run python teahan03.py prep -i data/raw/pan20-authorship-verification-training-small.jsonl -w data/raw/pan20-authorship-verification-training-small-truth.jsonl -o small_prepared.txt
+pipenv run python transcribe.py -i data/raw/pan20-data.jsonl
 
-pipenv run python teahan03.py train -i data/prepared/small_prepared.txt -o small_model.joblib
+python teahan03.py prep -i data/transcribed_<timestamp>/ -w data/raw/pan20-truth.jsonl 
 
-pipenv run python teahan03.py apply -i data/raw/pan20-authorship-verification-training-small.jsonl -o data/ -m data/model/small_model.joblib
+python teahan03.py crossval -i data/prepared_<timestamp>/
+```
+
+Run (train-test-split):
+```
+pipenv run python teahan03.py prep -i data/raw/pan20-training-set.jsonl -w data/raw/pan20-truth.jsonl
+
+pipenv run python teahan03.py train -i data/prepared/prepared_<timestamp>.txt
+
+pipenv run python teahan03.py apply -i data/raw/pan20-test-set.jsonl -m data/model/model_<timestamp>.joblib
 
 python3 pan20_verif_evaluator.py -i data/raw/pan20-authorship-verification-training-tiny-truth.jsonl -a data/answers.jsonl -o data/
 

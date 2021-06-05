@@ -330,7 +330,7 @@ def prep_data(train_file, truth_file, output_folder='prepared', out_name='',
         tr_data["data"] = data
         tr_data["labels"] = tr_labels
         if out_name == '':
-            out_name = now()
+            out_name = f'prep_{now()}.json'
         with open(os.path.join('data', output_folder, out_name), 'w') as outf:
             json.dump(tr_data, outf)
 
@@ -348,7 +348,7 @@ def prep_data_dir(train_folder, truth_file, ppm_order=5):
 
 
 # Trains the logistic regression model
-def train_model(train_data_file, out_name):
+def train_model(train_data_file, out_name=''):
     print('Loading data...')
     with open(train_data_file) as fp:
         D1 = json.load(fp)
@@ -358,6 +358,8 @@ def train_model(train_data_file, out_name):
     logreg = LogisticRegression()
     logreg.fit(X_train, y_train)
     print('Writing results...')
+    if out_name == '':
+        out_name = f'model_{now()}.json'
     dump(logreg, os.path.join('data', 'model', out_name))
 
 
@@ -384,7 +386,7 @@ def apply_model(eval_data_file, output_folder, model_file, radius):
     print('elapsed time:', time.time() - start_time)
 
 
-def crossval(input, k, radius, output_folder='eval/', output_name=''):
+def crossval(input, k, radius, output_folder='eval', output_name=''):
     kf = StratifiedKFold(n_splits=k)
     print('Loading data...')
     with open(input, 'r') as f:
@@ -422,7 +424,7 @@ def crossval(input, k, radius, output_folder='eval/', output_name=''):
     print(results)
 
     if output_name == '':
-        output_name = now()
+        output_name = f'eval_{now()}.json'
     with open(os.path.join('data', output_folder, output_name), 'w') as f:
         json.dump(results, f, indent=4, sort_keys=True)
 
@@ -451,7 +453,7 @@ def main():
                              help='PAN20 formatted training data')
     prep_parser.add_argument('-w', '--truth', type=str,
                              help='PAN20 formatted truth data')
-    prep_parser.add_argument('-o', '--output', type=str,
+    prep_parser.add_argument('-o', '--output', type=str, default='',
                              help='Name of output file')
     prep_parser.add_argument('-p', '--ppm_order', type=int, default=5,
                              help='Prediction by Partial Matching order')
@@ -460,14 +462,14 @@ def main():
                                          help='Train a model on prepared data')
     train_parser.add_argument('-i', '--input', type=str,
                               help='Prepared training data')
-    train_parser.add_argument('-o', '--output', type=str,
+    train_parser.add_argument('-o', '--output', type=str, default='',
                               help='Name of output file')
 
     apply_parser = subparsers.add_parser('apply',
                                          help='Apply a trained model to test data')
     apply_parser.add_argument('-i', '--input', type=str,
                               help='Full path name to the evaluation dataset JSONL file')
-    apply_parser.add_argument('-o', '--output', type=str,
+    apply_parser.add_argument('-o', '--output', type=str, default='',
                               help='Path to an output folder')
     apply_parser.add_argument('-m', '--model', type=str,
                               help='Full path name to the model file')
@@ -482,7 +484,7 @@ def main():
                                  help='Number of folds')
     crossval_parser.add_argument('-r', '--radius', type=float, default=0.05,
                                  help='Radius around 0.5 to leave verification cases unanswered')
-    crossval_parser.add_argument('-o', '--output', type=str,
+    crossval_parser.add_argument('-o', '--output', type=str, default='',
                                  help='Name of output file')
 
     args = parser.parse_args()
