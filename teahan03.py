@@ -295,9 +295,13 @@ def distance(text1, text2, ppm_order=5):
     return [round((d1 + d2) / 2.0, 4), round(abs(d1 - d2), 4)]
 
 
+def now(): return time.strftime("%Y-%m-%d_%H-%M-%S")
+
+
 # Prepares training data
 # For each verification case it calculates the mean and absolute differences of cross-entropies
-def prep_data(train_file, truth_file, out_name, ppm_order=5):
+def prep_data(train_file, truth_file, output_folder='prepared', out_name='',
+              ppm_order=5):
     print('Loading data...')
     with open(truth_file, 'r') as tfp:
         labels = []
@@ -325,15 +329,22 @@ def prep_data(train_file, truth_file, out_name, ppm_order=5):
         # Saves training data
         tr_data["data"] = data
         tr_data["labels"] = tr_labels
-        with open(os.path.join('data', 'prepared', out_name), 'w') as outf:
+        if out_name == '':
+            out_name = now()
+        with open(os.path.join('data', output_folder, out_name), 'w') as outf:
             json.dump(tr_data, outf)
 
 
 def prep_data_dir(train_folder, truth_file, ppm_order=5):
     directory = [d for d in os.scandir(train_folder)]
-    print(f'Preparing {len(directory)} files.')
+    print(f'Found {len(directory)} PAN20 data files.')
+    output_folder = f'prepared_{now()}/'
+    os.makedirs(os.path.dirname(os.path.join('data', output_folder)),
+                exist_ok=True)
     for dir_entry in directory:
-        prep_data(dir_entry.path, truth_file, f'prep_{dir_entry.name}', ppm_order)
+        prep_data(dir_entry.path, truth_file, output_folder,
+                  f'{dir_entry.name}',
+                  ppm_order)
 
 
 # Trains the logistic regression model
@@ -373,7 +384,7 @@ def apply_model(eval_data_file, output_folder, model_file, radius):
     print('elapsed time:', time.time() - start_time)
 
 
-def crossval(input, k, radius):
+def crossval(input, k, radius, output_folder='eval/', output_name=''):
     kf = StratifiedKFold(n_splits=k)
     print('Loading data...')
     with open(input, 'r') as f:
@@ -410,8 +421,20 @@ def crossval(input, k, radius):
     results = evaluate_all(true_y, pred_y)
     print(results)
 
-    with open(os.path.join('data', f'eval_{time.strftime("%Y-%m-%d_%H-%M-%S")}.json'), 'w') as f:
+    if output_name == '':
+        output_name = now()
+    with open(os.path.join('data', output_folder, output_name), 'w') as f:
         json.dump(results, f, indent=4, sort_keys=True)
+
+
+def crossval_dir(eval_data_folder, k, radius):
+    directory = [d for d in os.scandir(eval_data_folder)]
+    print(f'Found {len(directory)} prepared data files.')
+    output_folder = f'evaluated_{now()}/'
+    os.makedirs(os.path.dirname(os.path.join('data', output_folder)),
+                exist_ok=True)
+    for dir_entry in directory:
+        crossval(dir_entry.path, k, radius, output_folder, f'{dir_entry.name}')
 
 
 def main():
@@ -458,7 +481,9 @@ def main():
     crossval_parser.add_argument('-k', '--num_folds', type=int, default=10,
                                  help='Number of folds')
     crossval_parser.add_argument('-r', '--radius', type=float, default=0.05,
-                              help='Radius around 0.5 to leave verification cases unanswered')
+                                 help='Radius around 0.5 to leave verification cases unanswered')
+    crossval_parser.add_argument('-o', '--output', type=str,
+                                 help='Name of output file')
 
     args = parser.parse_args()
 
@@ -467,12 +492,12 @@ def main():
     os.makedirs(os.path.dirname(os.path.join('data', 'raw/')), exist_ok=True)
 
     if args.command == 'prep':
-        os.makedirs(os.path.dirname(os.path.join('data', 'prepared/')),
-                    exist_ok=True)
         if os.path.isdir(args.train):
             print('Folder detected.')
             prep_data_dir(args.train, args.truth, args.ppm_order)
         else:
+            os.makedirs(os.path.dirname(os.path.join('data', 'prepared/')),
+                        exist_ok=True)
             prep_data(args.train, args.truth, args.output, args.ppm_order)
 
     elif args.command == 'train':
@@ -490,7 +515,13 @@ def main():
         apply_model(args.input, args.output, args.model, args.radius)
 
     elif args.command == 'crossval':
-        crossval(args.input, args.num_folds, args.radius)
+        if os.path.isdir(args.input):
+            print('Folder detected.')
+            crossval_dir(args.input, args.num_folds, args.radius)
+        else:
+            os.makedirs(os.path.dirname(os.path.join('data', 'prepared/')),
+                        exist_ok=True)
+            crossval(args.input, args.num_folds, args.radius, args.output)
 
 
 if __name__ == '__main__':
