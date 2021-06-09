@@ -1,6 +1,8 @@
 import argparse
 import json
 import os
+import logging
+import traceback
 
 from tqdm import tqdm
 
@@ -34,15 +36,25 @@ def main():
             # entity: id (string), fandoms (list of strings), pair (list of strings, size 2?)
             orig_entities.append(entity)
 
-    for entity in tqdm(orig_entities):
+    for entity in tqdm(orig_entities[28796:]):
         copy = entity.copy()
-        first_transcriptions = transcribe_horizontal(entity['pair'][0])
-        second_transcriptions = transcribe_horizontal(entity['pair'][1])
+
+        try:
+            first_transcriptions = transcribe_horizontal(entity['pair'][0])
+            second_transcriptions = transcribe_horizontal(entity['pair'][1])
+        except Exception as e:
+            print(f"Sample ID: {entity['id']}")
+            logging.error(traceback.format_exc())
+            continue  # Skip persisting if exception occurs
+
         for system in transcription_systems:
             copy['pair'] = [first_transcriptions[system], second_transcriptions[system]]
             with open(os.path.join('data', 'transcribed', f'{system}_{os.path.basename(args.input)}'), 'a') as f:
                 json.dump(copy, f)
                 f.write('\n')
+        with open(os.path.join('data', 'transcribed', f'verbatim_{os.path.basename(args.input)}'), 'a') as f:
+            json.dump(entity, f)
+            f.write('\n')
 
 
 if __name__ == '__main__':
