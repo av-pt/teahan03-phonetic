@@ -3,10 +3,14 @@ import json
 import os
 import logging
 import traceback
+import time
 
 from tqdm import tqdm
 
 from converters import available_transcriptions, transcribe_horizontal
+
+
+def now(): return time.strftime("%Y-%m-%d_%H-%M-%S")
 
 
 def main():
@@ -15,10 +19,18 @@ def main():
         description='Transcribes PAN20 datasets into phonetic transcriptions',
         add_help=True)
     parser.add_argument('-i', '--input', type=str, help='Path to a PAN20 dataset file (.jsonl)')
+    parser.add_argument('-o', '--output', type=str, default='', help='Name for an output folder')
     args = parser.parse_args()
     if not args.input:
         print('ERROR: The input file is required')
         parser.exit(1)
+    output_folder = args.output
+    if args.output == '':
+        output_folder = os.path.join('data', f'transcibed_{now()}')
+        os.makedirs(os.path.dirname('data/'), exist_ok=True)
+        os.makedirs(os.path.dirname(os.path.join('data', 'transcribed/')), exist_ok=True)
+    else:
+        os.makedirs(output_folder, exist_ok=True)
 
     # Input: PAN20 file (relative path given)
     # Output: Transcribed PAN20 files in data/transcribed/
@@ -26,8 +38,6 @@ def main():
     print(f'Transcribing to {len(transcription_systems)} systems:')
     print(transcription_systems)
 
-    os.makedirs(os.path.dirname('data/'), exist_ok=True)
-    os.makedirs(os.path.dirname(os.path.join('data', 'transcribed/')), exist_ok=True)
 
     orig_entities = []
     with open(args.input, 'r') as f:
@@ -35,8 +45,7 @@ def main():
             entity = json.loads(line)
             # entity: id (string), fandoms (list of strings), pair (list of strings, size 2?)
             orig_entities.append(entity)
-
-    for entity in tqdm(orig_entities[28796:]):
+    for entity in tqdm(orig_entities):
         copy = entity.copy()
 
         try:
@@ -49,10 +58,10 @@ def main():
 
         for system in transcription_systems:
             copy['pair'] = [first_transcriptions[system], second_transcriptions[system]]
-            with open(os.path.join('data', 'transcribed', f'{system}_{os.path.basename(args.input)}'), 'a') as f:
+            with open(os.path.join(output_folder, f'{system}_{os.path.basename(args.input)}'), 'a+') as f:
                 json.dump(copy, f)
                 f.write('\n')
-        with open(os.path.join('data', 'transcribed', f'verbatim_{os.path.basename(args.input)}'), 'a') as f:
+        with open(os.path.join(output_folder, f'verbatim_{os.path.basename(args.input)}'), 'a+') as f:
             json.dump(entity, f)
             f.write('\n')
 
