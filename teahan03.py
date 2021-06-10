@@ -315,10 +315,12 @@ def prep_data(train_file, truth_file, output_folder='prepared', out_name='',
         for i, line in tqdm(enumerate(fp), total=len(labels)):
             X = json.loads(line)
             # Next line is ok performance-wise
-            true_label = [x for x in labels if x["id"] == X["id"]][0]
+            true_label = [x for x in labels if x["id"] == X["id"]]
+            if not true_label:
+                continue
             d = distance(X['pair'][0], X['pair'][1], ppm_order)
             data.append(d)
-            if true_label["same"] == True:
+            if true_label[0]["same"]:
                 tl = 1
             else:
                 tl = 0
