@@ -4,6 +4,7 @@ import os
 import logging
 import traceback
 import time
+import shutil
 
 from tqdm import tqdm
 
@@ -13,13 +14,23 @@ from converters import available_transcriptions, transcribe_horizontal
 def now(): return time.strftime("%Y-%m-%d_%H-%M-%S")
 
 
+def persist_jsonl(path, obj):
+    with open(path, 'a+') as f:
+        json.dump(obj, f)
+        f.write('\n')
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog='transcribe',
         description='Transcribes PAN20 datasets into phonetic transcriptions',
         add_help=True)
     parser.add_argument('-i', '--input', type=str, help='Path to a PAN20 dataset file (.jsonl)')
+    parser.add_argument('-t', '--truth', type=str, default='',
+                        help='Path to the corresponding PAN20 truth file (.jsonl)')
     parser.add_argument('-o', '--output', type=str, default='', help='Name for an output folder')
+    parser.add_argument('-s', '--separate_folders', action='store_true',
+                        help='Create separate folders for output files, each containing a copy of the truth file')
     args = parser.parse_args()
     if not args.input:
         print('ERROR: The input file is required')
@@ -37,6 +48,15 @@ def main():
     transcription_systems = available_transcriptions()
     print(f'Transcribing to {len(transcription_systems)} systems:')
     print(transcription_systems)
+
+    # Create subdirectories if chosen
+    if args.separate_folders:
+        for system in transcription_systems:
+            os.makedirs(os.path.join(output_folder, system), exist_ok=True)
+            shutil.copy(args.truth, os.path.join(output_folder, system))
+        os.makedirs(os.path.join(output_folder, 'verbatim'), exist_ok=True)
+        shutil.copy(args.truth, os.path.join(output_folder, 'verbatim'))
+
 
 
     orig_entities = []
@@ -58,12 +78,15 @@ def main():
 
         for system in transcription_systems:
             copy['pair'] = [first_transcriptions[system], second_transcriptions[system]]
-            with open(os.path.join(output_folder, f'{system}_{os.path.basename(args.input)}'), 'a+') as f:
-                json.dump(copy, f)
-                f.write('\n')
-        with open(os.path.join(output_folder, f'verbatim_{os.path.basename(args.input)}'), 'a+') as f:
-            json.dump(entity, f)
-            f.write('\n')
+            if args.separate_folders:
+                persist_jsonl(os.path.join(output_folder, system, f'{system}_{os.path.basename(args.input)}'), copy)
+            else:
+                persist_jsonl(os.path.join(output_folder, f'{system}_{os.path.basename(args.input)}'), copy)
+
+        if args.separate_folders:
+            persist_jsonl(os.path.join(output_folder, 'verbatim', f'verbatim_{os.path.basename(args.input)}'), entity)
+        else:
+            persist_jsonl(os.path.join(output_folder, f'verbatim_{os.path.basename(args.input)}'), entity)
 
 
 if __name__ == '__main__':
