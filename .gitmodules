@@ -1,3 +1,0 @@
-[submodule "clts"]
-	path = clts
-	url = git@github.com:cldf-clts/clts.git
