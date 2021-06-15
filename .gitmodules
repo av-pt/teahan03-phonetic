@@ -1,0 +1,3 @@
+[submodule "ba-util"]
+	path = ba-util
+	url = https://github.com/torond/ba-util.git
