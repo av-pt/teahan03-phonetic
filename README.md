@@ -1,8 +1,11 @@
 # teahan03-phonetic
 Authorship Verification algorithm based on Teahan and Harper [2003] extended to use phonetic transcriptions.
 
-NOTE: This project uses [CLTS data](https://github.com/cldf-clts/clts) as a submodule. Use `git clone --recurse-submodules` for cloning the repository. If you already cloned the repository with `git clone`, run `git submodule update --init` to get the required submodules.
-NOTE: This project uses Pipenv. Alternatively, the modules in the Pipfile can be installed manually. Then `pipenv run` is not required anymore.
+## Notes
+- This project uses [CLTS data](https://github.com/cldf-clts/clts) as a submodule. Use `git clone --recurse-submodules` for cloning the repository. If you already cloned the repository with `git clone`, run `git submodule update --init` to get the required submodules.  
+- This project uses Pipenv. Alternatively, the modules in the Pipfile can be installed manually. Then `pipenv run` is not required anymore.
+- You can either conduct cross-validation or use a standard train-test-split to evaluate the models. The cross-validation requires only one data file, as it splits the data into folds internally.
+
 
 ## Example commands
 Initialize:
@@ -16,7 +19,7 @@ Load the PAN20 data into the folder `teahan03-phonetic/data/raw/`
 
 Run (cross-validation):
 ```
-pipenv run python transcribe.py -i data/raw/pan20-data.jsonl
+pipenv run python ba-util/transcribe.py -i data/raw/pan20-data.jsonl
 
 python teahan03.py prep -i data/transcribed_<timestamp>/ -w data/raw/pan20-truth.jsonl 
 

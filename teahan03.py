@@ -530,7 +530,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-# Notes:
-# - pan20-authorship-verification-training-small.jsonl contains on each line: id (string), fandoms (list of strings), pair (list of strings, size 2?)
-# - pan20-authorship-verification-training-small-truth.jsonl each line: id (string), same (boolean), authors (list of 2 strings, ids)
