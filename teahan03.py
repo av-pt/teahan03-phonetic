@@ -68,6 +68,8 @@
 """
 
 from __future__ import print_function
+
+from glob import glob
 from math import log
 import os
 import json
@@ -339,13 +341,24 @@ def prep_data(train_file, truth_file, output_folder='prepared', out_name='',
 
 def prep_data_dir(train_folder, truth_file, ppm_order=5):
     directory = [d for d in os.scandir(train_folder)]
-    print(f'Found {len(directory)} PAN20 data files.')
+    print(f'Found {len(directory)} PAN20 data folders.')
     output_folder = f'prepared_{now()}/'
     os.makedirs(os.path.dirname(os.path.join('data', output_folder)),
                 exist_ok=True)
     for dir_entry in directory:
-        prep_data(dir_entry.path, truth_file, output_folder,
-                  f'{dir_entry.name}',
+        # Copied from unmasking framework
+        input_files = glob(os.path.join(dir_entry.path, "*.jsonl"))
+        if not 1 <= len(input_files) <= 2:
+            raise RuntimeError("Corpus must contain one or two .jsonl files, found {}".format(len(input_files)))
+
+        if len(input_files) > 1:
+            input_files = sorted(input_files, key=lambda x: x.endswith("-truth.jsonl"))
+            if not input_files[1].endswith("-truth.jsonl"):
+                raise RuntimeError("One of the input files must end with -truth.jsonl")
+        # copy end
+
+        prep_data(input_files[0], truth_file, output_folder,
+                  f'{os.path.basename(input_files[0])}',
                   ppm_order)
 
 
