@@ -75,6 +75,7 @@ import os
 import json
 import time
 import argparse
+from statistics import mean
 
 import numpy as np
 from sklearn.linear_model import LogisticRegression
@@ -402,7 +403,6 @@ def apply_model(eval_data_file, output_folder, model_file, radius):
 
 
 def crossval(input, k, radius, output_folder='eval', output_name=''):
-    kf = StratifiedKFold(n_splits=k)
     print('Loading data...')
     with open(input, 'r') as f:
         D1 = json.load(f)
@@ -412,36 +412,69 @@ def crossval(input, k, radius, output_folder='eval', output_name=''):
     X = np.array(X, dtype=np.float64)
     y = np.array(y, dtype=np.float64)
 
-    # Cross validating
-    pred_y = []
-    true_y = []
-    for train, test in kf.split(X, y):
-        X_train, X_test, y_train, y_test = X[train], X[test], y[train], y[test]
+    results = dict()
 
-        # Fitting regression
-        logreg_model = LogisticRegression()
-        logreg_model.fit(X_train, y_train)
+    for repetition in range(3):
+        print(f'Cross-validation repetition {repetition}')
 
-        for X_inner, y_inner in zip(X_test, y_test):
-            pred = logreg_model.predict_proba([X_inner])
-            # All values around 0.5 are transformed to 0.5
-            if 0.5 - radius <= pred[0, 1] <= 0.5 + radius:
-                pred[0, 1] = 0.5
-            pred_y.append(pred[0, 1])
-            true_y.append(y_inner)
-    print(f'Number of samples: {len(X)}\n'
-          f'Number of predictions: {len(pred_y)}\n'
-          f'Size of ground truth: {len(true_y)}')
-    print(pred_y, true_y)
+        kf = StratifiedKFold(n_splits=k, shuffle=True, random_state=repetition)
 
-    # Evaluate
-    results = evaluate_all(true_y, pred_y)
-    print(results)
+        results[repetition] = dict()
+        results[repetition]['accuracy'] = []
+        results[repetition]['c_at_1'] = []
+        results[repetition]['f1'] = []
+        results[repetition]['precision'] = []
+        results[repetition]['recall'] = []
+        results[repetition]['f_05_u'] = []
+
+        # Cross validating
+        for train, test in kf.split(X, y):
+            X_train, X_test, y_train, y_test = X[train], X[test], y[train], y[test]
+
+            # Fitting regression
+            logreg_model = LogisticRegression()
+            logreg_model.fit(X_train, y_train)
+
+            # List of samples
+            pred_y = []
+            true_y = []
+
+            for X_inner, y_inner in zip(X_test, y_test):
+                # Single sample
+                pred = logreg_model.predict_proba([X_inner])
+                # All values around 0.5 are transformed to 0.5
+                # if pred[0, 1] == 0.5:
+                #     print("hey")
+                if 0.5 - radius <= pred[0, 1] <= 0.5 + radius:
+                    pred[0, 1] = 0.5
+                pred_y.append(pred[0, 1])
+                true_y.append(y_inner)
+
+            r = evaluate_all(true_y, pred_y)
+
+            results[repetition]['accuracy'].append(r['accuracy'])
+            results[repetition]['c_at_1'].append(r['c_at_1'])
+            results[repetition]['f1'].append(r['f1'])
+            results[repetition]['precision'].append(r['precision'])
+            results[repetition]['recall'].append(r['recall'])
+            results[repetition]['f_05_u'].append(r['f_05_u'])
+
+    results['avg'] = dict()
+    results['avg']['accuracy'] = mean(results[0]['accuracy'] + results[1]['accuracy'] + results[2]['accuracy'])
+    results['avg']['c_at_1'] = mean(results[0]['c_at_1'] + results[1]['c_at_1'] + results[2]['c_at_1'])
+    results['avg']['f1'] = mean(results[0]['f1'] + results[1]['f1'] + results[2]['f1'])
+    results['avg']['precision'] = mean(results[0]['precision'] + results[1]['precision'] + results[2]['precision'])
+    results['avg']['recall'] = mean(results[0]['recall'] + results[1]['recall'] + results[2]['recall'])
+    results['avg']['f_05_u'] = mean(results[0]['f_05_u'] + results[1]['f_05_u'] + results[2]['f_05_u'])
+
+    dto = dict()
+    dto['results'] = results
+    dto['folds'] = k
 
     if output_name == '':
         output_name = f'eval_{now()}.json'
     with open(os.path.join('data', output_folder, output_name), 'w') as f:
-        json.dump(results, f, indent=4, sort_keys=True)
+        json.dump(dto, f, indent=4)
 
 
 def crossval_dir(eval_data_folder, k, radius):
@@ -451,6 +484,9 @@ def crossval_dir(eval_data_folder, k, radius):
     os.makedirs(os.path.dirname(os.path.join('data', output_folder)),
                 exist_ok=True)
     for dir_entry in directory:
+        # if dir_entry.name in ['cv_gb.jsonl', 'cv_4grams_gb.jsonl', 'dolgo_4grams_gb.jsonl', 'punct_4grams_gb.jsonl', 'dolgo_gb.jsonl', 'asjp_4grams_gb.jsonl', 'refsoundex_gb.jsonl', 'soundex_gb.jsonl']:
+        #     continue
+        print(f'Cross-validating {dir_entry.name}...')
         crossval(dir_entry.path, k, radius, output_folder, f'{dir_entry.name}')
 
 

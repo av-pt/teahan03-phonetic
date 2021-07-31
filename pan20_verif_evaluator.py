@@ -80,7 +80,7 @@ import json
 import os
 
 import numpy as np
-from sklearn.metrics import roc_auc_score, f1_score
+from sklearn.metrics import roc_auc_score, f1_score, precision_score, recall_score, accuracy_score
 
 
 def binarize(y, threshold=0.5):
@@ -209,7 +209,7 @@ def f1(true_y, pred_y):
         if pred != 0.5:
             true_y_filtered.append(true)
             pred_y_filtered.append(pred)
-    
+
     pred_y_filtered = binarize(pred_y_filtered)
 
     return f1_score(true_y_filtered, pred_y_filtered)
@@ -264,16 +264,28 @@ def evaluate_all(true_y, pred_y):
     is the mean of the individual metrics (0 >= metric >= 1). All 
     scores get rounded to three digits.
     """
+    # eliminate all non-decisions and binarize
+    true_y_filtered, pred_y_filtered = [], []
 
-    results = {'auc': auc(true_y, pred_y),
-               'c@1': c_at_1(true_y, pred_y),
+    for true, pred in zip(true_y, pred_y):
+        if pred != 0.5:
+            true_y_filtered.append(true)
+            pred_y_filtered.append(pred)
+
+    pred_y_filtered = binarize(pred_y_filtered)
+
+    results = {#'auc': auc(true_y, pred_y),
+               'c_at_1': c_at_1(true_y, pred_y),
                'f_05_u': f_05_u_score(true_y, pred_y),
-               'F1': f1(true_y, pred_y)}
+               'f1': f1(true_y, pred_y),
+               'precision': precision_score(true_y_filtered, pred_y_filtered),
+               'recall': recall_score(true_y_filtered, pred_y_filtered),
+               'accuracy': accuracy_score(true_y_filtered, pred_y_filtered)}
     
-    results['overall'] = np.mean(list(results.values()))
+    # results['overall'] = np.mean(list(results.values()))
 
-    for k, v in results.items():
-        results[k] = round(v, 3)
+    # for k, v in results.items():
+    #     results[k] = round(v, 3)
 
     return results
 
